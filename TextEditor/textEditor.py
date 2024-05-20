@@ -5,36 +5,75 @@ from tkinter import messagebox
 
 import os
 from enum import Enum
-class FindWindow:
+
+class FindWindowBase:
     class Direction(Enum):
         Down = 0,
         Up = 1
+
     def __init__(self,textEditor):
 
         self.find_str = tk.StringVar()
-        self.down = tk.BooleanVar(value=True)
-        self.up = tk.BooleanVar(value=False)
+        self.find_str.trace_add("write",self.enable_find)
         self.case_sensitive = tk.BooleanVar(value=False)
         self.loop = tk.BooleanVar(value=False)
 
         self.editor = textEditor
         self.window = tk.Toplevel(master=textEditor.window)
         self.window.protocol("WM_DELETE_WINDOW", lambda:self.window.withdraw())
-        self.window.geometry(f"400x150+200+200")
+        self.window.geometry(f"350x150+200+200")
         self.window.withdraw()
         self.window.title("Find")
         self.lbl_find_what = tk.Label(master=self.window,text="Find what:")
-        self.lbl_find_what.grid(row=0,column=0)
+        self.lbl_find_what.grid(row=0,column=0,sticky="w",padx=5)
         self.ent_input = tk.Entry(master=self.window,textvariable=self.find_str)
         self.ent_input.grid(row=0,column=1,padx=5,pady=10)
         self.btn_find_next = tk.Button(master=self.window,text="Find Next",width=10,relief="groove",command=lambda:self.find_next())
         self.btn_find_next.grid(row=0,column=2,padx=10)
         self.btn_cancel = tk.Button(master=self.window,text="Cancel",width=10,relief="groove",command=lambda:self.window.withdraw())
         self.btn_cancel.grid(row=1,column=2,padx=10)
+        self.btn_find_next.config(state="disabled")
         self.ckbtn_case_sensitive = tk.Checkbutton(master=self.window,text="Match case",variable=self.case_sensitive)
         self.ckbtn_case_sensitive.grid(row=1,column=0,sticky="w")
         self.ckbtn_loop = tk.Checkbutton(master=self.window,text="Loop",variable=self.loop)
         self.ckbtn_loop.grid(row=2,column=0,sticky="w")
+
+    def enable_find(self,*args):
+        if self.find_str.get():
+            self.btn_find_next.config(state="normal")
+        else:
+            self.btn_find_next.config(state="disabled")
+
+    def open(self):
+        self.window.deiconify()
+         
+    def get_config(self):
+        return {
+            "text":self.find_str.get(),
+            "direction":self.Direction.Down,
+            "case_sensitive":self.case_sensitive.get(),
+            "loop":self.loop.get()
+            }
+    
+    def find_next(self):
+        config = self.get_config()
+        result = self.editor.find_content(
+            config["text"],config["direction"],
+            config["case_sensitive"],config["loop"])
+        if not result:
+            messagebox.showinfo("Notepad", f"Cannot find \"{config["text"]}\"")
+            self.window.focus_set()
+        return result
+
+class FindWindow(FindWindowBase):
+    class Direction(Enum):
+        Down = 0,
+        Up = 1
+    def __init__(self,textEditor):
+        super().__init__(textEditor)
+        self.down = tk.BooleanVar(value=True)
+        self.up = tk.BooleanVar(value=False)
+       
         self.fra_direction = tk.Frame(master=self.window)
         self.fra_direction.grid(row=1,rowspan=2,column=1,pady=10)
         self.lbl_direction = tk.Label(master=self.fra_direction,relief="groove")
@@ -46,9 +85,7 @@ class FindWindow:
         self.ckbtn_dir_up = tk.Checkbutton(master=self.lbl_direction,text="Up",variable=self.up,command=lambda:self.up_checked())
         self.ckbtn_dir_up.grid(row=1,column=0,sticky="w")
 
-        
-        
-    
+           
     def open(self,direction = None):
         if direction:
             if direction == self.Direction.Down:
@@ -59,7 +96,7 @@ class FindWindow:
                 if self.down.get():
                     self.down.set(False)
                 self.up.set(True)
-        self.window.deiconify()
+        super().open()
 
     def down_checked(self):
         self.down.set(True)
@@ -73,20 +110,76 @@ class FindWindow:
            
     def get_config(self):
         direction = self.Direction.Down if self.down.get() else self.Direction.Up
-        return {
-            "text":self.find_str.get(),
-            "direction":direction,
-            "case_sensitive":self.case_sensitive.get(),
-            "loop":self.loop.get()
-            }
-    
-    def find_next(self):
-        config = self.get_config()
-        self.editor.find_content(
-            config["text"],config["direction"],
-            config["case_sensitive"],config["loop"])
+        config = super().get_config()
+        config["direction"] = direction
+        return config
+       
+class ReplaceWindow(FindWindowBase):
+    def __init__(self, textEditor):
+        super().__init__(textEditor)
 
+        self.replace_str = tk.StringVar()
+        self.replace_str.trace_add("write",self.enable_replace)
+        self.found_pos = None
+
+        self.window.title("Replace")
+        self.btn_replace = tk.Button(master=self.window,text="Replace",width=10,relief="groove",command=lambda:self.replace())
+        self.btn_replace.config(state="disabled")
+        self.btn_replace_all = tk.Button(master=self.window,text="Replace All",width=10,relief="groove",command=lambda:self.replace_all())
+        self.btn_replace_all.config(state="disabled")
+        self.lbl_replace_with = tk.Label(master=self.window,text="Replace with:")
+        self.ent_replace = tk.Entry(master=self.window,textvariable=self.replace_str)
+       
+        self.btn_find_next.grid(row=0,column=2,padx=10)
+        self.lbl_replace_with.grid(row=1,column=0,sticky="w",padx=5)
+        self.ent_replace.grid(row=1,column=1,padx=5)     
+        self.btn_replace.grid(row=1,column=2,padx=10)
+        self.btn_replace_all.grid(row=2,column=2,padx=10)
+        self.ckbtn_case_sensitive.grid(row=2,column=0,sticky="w")
+        self.btn_cancel.grid(row=3,column=2,padx=10)   
+        self.ckbtn_loop.grid(row=3,column=0,sticky="w")
         
+        
+    def enable_replace(self,*args):
+        if self.replace_str.get() and self.find_str.get():
+            self.btn_replace.config(state="normal")
+            self.btn_replace_all.config(state="normal")
+        else:
+            self.btn_replace.config(state="disabled")
+            self.btn_replace_all.config(state="disabled")
+
+    def replace(self):
+        if self.found_pos:
+            len_found = len(self.find_str.get())
+            end_pos = self.found_pos + f"+{len_found}c"
+            self.editor.textBox.replace(self.found_pos,end_pos,self.replace_str.get())
+        
+        self.found_pos = self.find_next()
+
+    def replace_all(self):
+        textBox = self.editor.textBox
+        textBox.mark_set(tk.INSERT, "1.0")
+        content = self.find_str.get()
+        all_results = []
+        start = "1.0"
+        while True:
+            found_pos = textBox.search(index=start,stopindex=tk.END,
+                                       pattern=content,
+                                       forwards=True,
+                                       nocase=not self.case_sensitive.get())
+            start = found_pos + f"+{len(content)}c"
+            if not found_pos:
+                break
+            all_results.append(found_pos)
+        if len(all_results) > 0:
+            len_found = len(content)
+            for result in all_results:
+               end_pos = result + f"+{len_found}c"
+               textBox.replace(result,end_pos,self.replace_str.get())       
+        else:
+            messagebox.showinfo("Notepad", f"Cannot find \"{content}\"")
+            self.window.focus_set()
+                              
 class TextEditor:
     untitled = "Untitled"
     def __init__(self,master):
@@ -126,7 +219,7 @@ class TextEditor:
         self.menu_edit.add_command(label="Find",command=lambda:self.find())
         self.menu_edit.add_command(label="Find Next",command=lambda:self.find_next())
         self.menu_edit.add_command(label="Find Previous",command=lambda:self.find_previous())
-        self.menu_edit.add_command(label="Replace")
+        self.menu_edit.add_command(label="Replace",command=lambda:self.replace())
         self.menu_edit.add_command(label="Go To")
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Select All")
@@ -149,6 +242,7 @@ class TextEditor:
         self.menuBar.add_cascade(menu=self.menu_view,label="View")
 
         self.find_window = FindWindow(self)
+        self.replace_window = ReplaceWindow(self)
         self.window.mainloop()
     
     def get_title(self,name):
@@ -237,7 +331,7 @@ class TextEditor:
         found_pos = None
         end_index = None
         mark_pos = None
-        if direction == FindWindow.Direction.Down:
+        if direction == FindWindowBase.Direction.Down:
             if not loop: 
                 end_index = tk.END
             found_pos = self.textBox.search(index=cursor_pos,pattern=content,
@@ -256,8 +350,8 @@ class TextEditor:
             self.textBox.tag_config("highlight",foreground="white",background="SystemHighlight")
             self.textBox.mark_set(tk.INSERT, mark_pos) # Move the cursor to the end of the found text
             self.textBox.see(found_pos)  # Scroll to show the found text
-        else:
-            messagebox.showinfo("Notepad", f"Cannot find \"{content}\"")
+        
+        return found_pos
         
     def find(self):     
         self.find_window.open()
@@ -269,7 +363,7 @@ class TextEditor:
         self.find_window.open(FindWindow.Direction.Up)
 
     def replace(self):
-        pass
+        self.replace_window.open()
 
     def goto(self):
         pass
@@ -294,6 +388,8 @@ class TextEditor:
 
 def main():
     t1 = TextEditor(tk.Tk())
+    #t = tk.Text()
+    #t.replace()
     
 if __name__ == "__main__":
     main()
