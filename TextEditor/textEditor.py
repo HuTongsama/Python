@@ -331,24 +331,24 @@ class TextEditor:
         self.menu_edit.add_command(label="Replace",command=lambda:self.replace())
         self.menu_edit.add_command(label="Go To",command=lambda:self.goto())
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Select All")
+        self.menu_edit.add_command(label="Select All",command=lambda:self.select_all())
 
-        self.menu_format = tk.Menu(master=self.menuBar,tearoff=False)
-        self.menu_format.add_command(label="Word Wrap")
-        self.menu_format.add_command(label="Font")
+        # self.menu_format = tk.Menu(master=self.menuBar,tearoff=False)
+        # self.menu_format.add_command(label="Word Wrap")
+        # self.menu_format.add_command(label="Font")
 
-        self.menu_view = tk.Menu(master=self.menuBar,tearoff=False)
-        self.menu_zoom = tk.Menu(master=self.menu_view,tearoff=False)
-        self.menu_zoom.add_command(label="Zoom In")
-        self.menu_zoom.add_command(label="Zoom Out")
-        self.menu_zoom.add_command(label="Restore Default Zoom")
-        self.menu_view.add_cascade(menu=self.menu_zoom,label="Zoom")
-        self.menu_view.add_command(label="Status Bar")
+        # self.menu_view = tk.Menu(master=self.menuBar,tearoff=False)
+        # self.menu_zoom = tk.Menu(master=self.menu_view,tearoff=False)
+        # self.menu_zoom.add_command(label="Zoom In")
+        # self.menu_zoom.add_command(label="Zoom Out")
+        # self.menu_zoom.add_command(label="Restore Default Zoom")
+        # self.menu_view.add_cascade(menu=self.menu_zoom,label="Zoom")
+        # self.menu_view.add_command(label="Status Bar")
 
         self.menuBar.add_cascade(menu=self.menu_file,label="File")
         self.menuBar.add_cascade(menu=self.menu_edit,label="Edit")
-        self.menuBar.add_cascade(menu=self.menu_format,label="Format")
-        self.menuBar.add_cascade(menu=self.menu_view,label="View")
+        #self.menuBar.add_cascade(menu=self.menu_format,label="Format")
+        #self.menuBar.add_cascade(menu=self.menu_view,label="View")
 
         self.find_window = FindWindow(self)
         self.replace_window = ReplaceWindow(self)
@@ -480,7 +480,7 @@ class TextEditor:
         self.goto_window.open()
 
     def select_all(self):
-        pass
+        self.textBox.tag_add("sel", "1.0", tk.END)
 
     def on_content_changed(self,event):
         flag = self.textBox.edit_modified()
