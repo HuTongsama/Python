@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as fd
 from tkinter import messagebox
+from tkinter import font
 
 import os
 from enum import Enum
@@ -179,7 +180,115 @@ class ReplaceWindow(FindWindowBase):
         else:
             messagebox.showinfo("Notepad", f"Cannot find \"{content}\"")
             self.window.focus_set()
-                              
+
+class GotoWindow: 
+    def __init__(self,textEditor):
+        self.editor = textEditor
+        self.window = tk.Toplevel(master=textEditor.window)
+        self.window.bind("<Button>",self.hide_warning)
+    
+        self.window.protocol("WM_DELETE_WINDOW", lambda:self.close())
+        self.window.geometry(f"290x130+200+200")
+        self.window.withdraw()
+        self.window.title("Go To Line")
+        
+        self.lbl_input = tk.Label(master=self.window,text="Line number:")
+        self.input = tk.StringVar()
+        vcmd = (self.window.register(self.input_check), '%P')
+        self.unit_count = 38
+        self.ent_input = tk.Entry(master=self.window,width=self.unit_count,textvariable=self.input,
+                                  validate="key",validatecommand=vcmd)
+        self.ent_input.bind("<KeyPress>",self.hide_warning)
+        self.fra_button = tk.Frame(master=self.window)
+        self.btn_goto = tk.Button(master=self.fra_button,width=12,text="go to",command=lambda:self.goto())
+        self.btn_cancel = tk.Button(master=self.fra_button,width=12,text="cancel",command=lambda:self.close())
+        self.win_warning = None
+
+        self.lbl_input.grid(row=0,column=0,padx=10,pady=5,sticky="w")
+        self.ent_input.grid(row=1,column=0,padx=10,pady=5,sticky="w")      
+        self.fra_button.grid(row=2,column=0,columnspan=2,padx=5,pady=5,sticky="e")    
+        self.btn_goto.grid(row=0,column=0,padx=5,pady=5,sticky="w")
+        self.btn_cancel.grid(row=0,column=1,padx=5,pady=5,sticky="w")
+        
+                      
+    def show_warning(self):
+        self.win_warning = tk.Toplevel(self.window)    
+        entry_font = font.Font(font=self.ent_input['font'])
+        text_height = entry_font.metrics('linespace')
+        x = self.ent_input.winfo_rootx()
+        y = self.ent_input.winfo_rooty() + text_height
+        self.win_warning.geometry(
+         f"+{x}+{y}")
+        self.win_warning.wm_overrideredirect(True)
+        canvas = tk.Canvas(master=self.win_warning,width=220,height=80)
+        canvas.bind("<Button>",self.hide_warning)
+        
+        padding = 5
+        width = self.ent_input.winfo_width()*0.8
+        self.ent_input.update_idletasks()
+        pos = self.ent_input.index(tk.INSERT)
+        start_x = pos / self.unit_count * self.ent_input.winfo_width()
+        if start_x == 0:
+            start_x = padding
+        x1,y1 = start_x, padding
+        x2,y2 = x1 + 0.5 * text_height , y1 + text_height
+        x3,y3 = width, y2
+        x4,y4 = x3, y3 + text_height * 3
+        x5,y5 = x1,y4
+        x6,y6 = x1,y1
+        canvas.configure(bg="white", highlightthickness=0)       
+        canvas.create_polygon(
+            x1,y1,
+            x2,y2,
+            x3,y3,
+            x4,y4,
+            x5,y5,
+            x6,y6,
+            outline="black", fill="white"
+        )
+        
+        canvas.create_text(
+            x1,y2,
+            anchor="nw",
+            text=" Unacceptable character.\n You can only type a number here.",
+            width=width,
+            fill="black"
+        )
+        canvas.pack()
+
+    def hide_warning(self,event):
+        if self.win_warning:
+            self.win_warning.destroy()
+        self.win_warning = None
+
+    def input_check(self, content):
+        if content.isdigit() or content == '':
+            return True
+        self.show_warning()
+        return False
+    
+    def open(self):        
+        self.window.deiconify()
+        self.ent_input.focus_set()
+    
+    def close(self):
+        self.window.withdraw()
+       
+    def goto(self):
+        line = self.ent_input.get()
+        end_position = self.editor.textBox.index('end-1c')
+        max_count = int(end_position.split('.')[0])
+        cur_count = int(line)
+        if cur_count > 0 and cur_count <= max_count:
+            line = line + ".0"
+            self.editor.textBox.mark_set(tk.INSERT, line)
+        else:
+            messagebox.showinfo("Notepad - Goto Line",
+                                            "The line number is beyond the total number of lines")
+        self.close()
+        
+           
+
 class TextEditor:
     untitled = "Untitled"
     def __init__(self,master):
@@ -220,7 +329,7 @@ class TextEditor:
         self.menu_edit.add_command(label="Find Next",command=lambda:self.find_next())
         self.menu_edit.add_command(label="Find Previous",command=lambda:self.find_previous())
         self.menu_edit.add_command(label="Replace",command=lambda:self.replace())
-        self.menu_edit.add_command(label="Go To")
+        self.menu_edit.add_command(label="Go To",command=lambda:self.goto())
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Select All")
 
@@ -243,6 +352,8 @@ class TextEditor:
 
         self.find_window = FindWindow(self)
         self.replace_window = ReplaceWindow(self)
+        self.goto_window = GotoWindow(self)
+        self.textBox.focus_set()
         self.window.mainloop()
     
     def get_title(self,name):
@@ -366,7 +477,7 @@ class TextEditor:
         self.replace_window.open()
 
     def goto(self):
-        pass
+        self.goto_window.open()
 
     def select_all(self):
         pass
